@@ -1,0 +1,2597 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SecureCloud Zero-Trust Messenger</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        *::-webkit-scrollbar {
+            display: none;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            background-color: #f9fafb;
+            color: #111;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 320px;
+            background: #fff;
+            border-right: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            flex-shrink: 0;
+            transition: transform 0.3s ease;
+            position: relative;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .search-container {
+            position: relative;
+            width: 100%;
+        }
+
+        .search-container svg {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            color: #9ca3af;
+            pointer-events: none;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 10px 12px 10px 36px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            outline: none;
+            font-size: 0.9em;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background: #f9fafb;
+        }
+
+        .search-box:focus {
+            border-color: #000;
+            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
+            background: #fff;
+        }
+
+        .action-btn {
+            width: 100%;
+            padding: 10px;
+            background: #f3f4f6;
+            color: #111;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-weight: 600;
+            font-size: 0.9em;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .action-btn:hover {
+            background: #e5e7eb;
+            border-color: #d1d5db;
+        }
+
+        .action-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .list-title {
+            padding: 16px 20px 8px;
+            font-size: 0.75em;
+            font-weight: 700;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .list-title svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .user-list {
+            flex: 1;
+            overflow-y: auto;
+            list-style: none;
+        }
+
+        .user-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            transition: background 0.2s;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 10px;
+            font-size: 0.95em;
+            font-weight: 500;
+        }
+
+        .user-item:hover {
+            background: #f3f4f6;
+        }
+
+        .user-item.active {
+            background: #e5e7eb;
+        }
+
+        .user-item .badge {
+            display: none;
+            width: 8px;
+            height: 8px;
+            background: #ef4444;
+            border-radius: 50%;
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .user-item span {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .profile-panel {
+            padding: 15px 20px;
+            border-top: 1px solid #e5e7eb;
+            background: #fafafa;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .profile-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            overflow: hidden;
+        }
+
+        .profile-avatar {
+            width: 32px;
+            height: 32px;
+            background: #000;
+            color: #fff;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 0.9em;
+            flex-shrink: 0;
+        }
+
+        .profile-name {
+            font-weight: 600;
+            font-size: 0.95em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .profile-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .profile-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #6b7280;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .profile-btn:hover {
+            background: #e5e7eb;
+            color: #111;
+        }
+
+        .profile-btn.danger:hover {
+            background: #fee2e2;
+            color: #ef4444;
+        }
+
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            position: relative;
+            min-width: 0;
+        }
+
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #9ca3af;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+            color: #d1d5db;
+        }
+
+        .empty-state p {
+            font-size: 1.05em;
+            font-weight: 500;
+            color: #6b7280;
+        }
+
+        .chat-area {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            height: 100%;
+            position: relative;
+            min-width: 0;
+        }
+
+        .chat-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fff;
+            z-index: 10;
+            height: 65px;
+            transition: background 0.3s;
+        }
+
+        .chat-header.pfs-mode {
+            background: #ecfdf5;
+            border-bottom-color: #10b981;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            min-width: 0;
+        }
+
+        .back-btn {
+            display: none;
+            background: none;
+            border: none;
+            cursor: pointer;
+            margin-right: 15px;
+            padding: 5px;
+            color: #111;
+        }
+
+        .chat-header-title {
+            font-weight: 600;
+            font-size: 1.1em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pfs-btn {
+            display: none;
+            padding: 6px 12px;
+            background: #fff;
+            color: #10b981;
+            border: 1px solid #10b981;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85em;
+            transition: all 0.2s;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pfs-btn:hover {
+            background: #10b981;
+            color: #fff;
+        }
+
+        .pfs-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .chat-menu-btn {
+            display: none;
+            padding: 6px 10px;
+            background: transparent;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #6b7280;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .chat-menu-btn:hover {
+            background: #f3f4f6;
+            color: #111;
+        }
+
+        .chat-menu-btn svg {
+            width: 18px;
+            height: 18px;
+            display: block;
+        }
+
+        .chat-dropdown {
+            position: absolute;
+            top: 55px;
+            right: 20px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+            z-index: 100;
+            min-width: 180px;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-dropdown.open {
+            display: flex;
+        }
+
+        .chat-dropdown-item {
+            padding: 11px 16px;
+            font-size: 0.9em;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #111;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .chat-dropdown-item:hover {
+            background: #f3f4f6;
+        }
+
+        .chat-dropdown-item.danger {
+            color: #ef4444;
+        }
+
+        .chat-dropdown-item.danger:hover {
+            background: #fee2e2;
+        }
+
+        .chat-dropdown-item svg {
+            width: 15px;
+            height: 15px;
+            flex-shrink: 0;
+        }
+
+        #chat {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: #f9fafb;
+            position: relative;
+            min-width: 0;
+        }
+
+        .msg-wrapper {
+            display: flex;
+            flex-direction: column;
+            max-width: 75%;
+            min-width: 0;
+        }
+
+        .msg-wrapper.mine {
+            align-self: flex-end;
+        }
+
+        .msg-wrapper.theirs {
+            align-self: flex-start;
+        }
+
+        .sender-name {
+            font-size: 0.75em;
+            color: #6b7280;
+            margin-bottom: 4px;
+            margin-left: 2px;
+        }
+
+        .msg-bubble {
+            background-color: #fff;
+            color: #111;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            border-bottom-left-radius: 4px;
+            padding: 8px 8px 6px 8px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+            position: relative;
+        }
+
+        .msg-wrapper.mine .msg-bubble {
+            background-color: #000;
+            color: #fff;
+            border-color: #000;
+            border-bottom-left-radius: 16px;
+            border-bottom-right-radius: 4px;
+        }
+
+        .msg-wrapper.pfs-msg .msg-bubble {
+            border: 2px solid #10b981;
+        }
+
+        .msg-text {
+            padding: 2px 6px;
+            font-size: 0.95em;
+            line-height: 1.4;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            hyphens: auto;
+            white-space: pre-wrap;
+        }
+
+        .msg-status {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            opacity: 0.7;
+            padding-right: 4px;
+            gap: 4px;
+        }
+
+        .msg-status svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .msg-status.error svg {
+            stroke: #ef4444;
+            opacity: 1;
+        }
+
+        .pfs-icon {
+            color: #10b981;
+            display: flex;
+            align-items: center;
+        }
+
+        .file-box {
+            background: #f3f4f6;
+            color: #000;
+            padding: 10px 14px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.9em;
+            transition: background 0.2s, box-shadow 0.2s;
+            word-break: break-all;
+            margin: 0 4px;
+        }
+
+        .file-box:hover {
+            background: #e5e7eb;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .msg-wrapper.mine .file-box {
+            background: #333;
+            color: #fff;
+            border: 1px solid #444;
+        }
+
+        .msg-wrapper.mine .file-box:hover {
+            background: #444;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .file-box svg {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+
+        #controlsWrapper {
+            background: #fff;
+            border-top: 1px solid #e5e7eb;
+            z-index: 10;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #attachmentsPreview {
+            display: none;
+            padding: 12px 20px 0 20px;
+            gap: 10px;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .preview-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            padding: 6px 8px 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 500;
+            color: #111;
+            max-width: 220px;
+        }
+
+        .preview-chip span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: block;
+        }
+
+        .preview-remove {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 22px;
+            height: 22px;
+            background: #ef4444;
+            color: #fff;
+            border-radius: 50%;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+
+        .preview-remove:hover {
+            background: #dc2626;
+        }
+
+        .controls {
+            padding: 15px 20px;
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        textarea {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 20px;
+            resize: none;
+            outline: none;
+            min-height: 46px;
+            max-height: 120px;
+            font-size: 0.95em;
+            transition: border-color 0.2s;
+            font-family: inherit;
+            background: #f9fafb;
+            line-height: 1.4;
+        }
+
+        textarea:focus {
+            border-color: #000;
+            background: #fff;
+        }
+
+        .icon-btn {
+            width: 46px;
+            height: 46px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s, background 0.2s;
+            flex-shrink: 0;
+        }
+
+        .icon-btn:active {
+            transform: scale(0.95);
+        }
+
+        .icon-btn.secondary {
+            background: #f3f4f6;
+            color: #111;
+            border: 1px solid #e5e7eb;
+        }
+
+        .icon-btn.secondary:hover {
+            background: #e5e7eb;
+        }
+
+        .icon-btn:hover:not(.secondary):not(:disabled) {
+            opacity: 0.85;
+        }
+
+        .icon-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .icon-btn:disabled:active {
+            transform: none;
+        }
+
+        .icon-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .scroll-bottom-btn {
+            position: absolute;
+            right: 20px;
+            bottom: 10px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #fff;
+            color: #111;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s, transform 0.2s;
+            transform: translateY(10px);
+            z-index: 20;
+        }
+
+        .scroll-bottom-btn.show {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+
+        .scroll-bottom-btn svg {
+            width: 20px;
+            height: 20px;
+            stroke-width: 2.5;
+        }
+
+        .upload-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            z-index: 30;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            font-weight: 600;
+            color: #111;
+            backdrop-filter: blur(4px);
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .spinner {
+            border: 3px solid #f3f4f6;
+            border-top-color: #000;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            animation: spin 1s linear infinite;
+        }
+
+        .drag-overlay {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            right: 15px;
+            bottom: 15px;
+            background: rgba(255, 255, 255, 0.95);
+            z-index: 40;
+            border: 3px dashed #9ca3af;
+            border-radius: 20px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #111;
+            font-size: 1.5em;
+            font-weight: 600;
+            pointer-events: none;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .drag-overlay.active {
+            display: flex;
+            border-color: #000;
+            background: rgba(249, 250, 251, 0.98);
+        }
+
+        .drag-overlay svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            color: #000;
+        }
+
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 50;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+            backdrop-filter: blur(2px);
+        }
+
+        .modal-backdrop.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal {
+            background: #fff;
+            border-radius: 16px;
+            width: 400px;
+            max-width: 90%;
+            padding: 25px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            transform: scale(0.95);
+            transition: transform 0.2s;
+        }
+
+        .modal-backdrop.show .modal {
+            transform: scale(1);
+        }
+
+        .modal h3 {
+            margin-bottom: 12px;
+            font-size: 1.2em;
+            color: #111;
+            font-weight: 700;
+        }
+
+        .modal p.desc {
+            color: #6b7280;
+            font-size: 0.95em;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .modal input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            outline: none;
+            font-size: 0.95em;
+            transition: border-color 0.2s;
+        }
+
+        .modal input:focus {
+            border-color: #000;
+        }
+
+        .input-error-text {
+            color: #ef4444;
+            font-size: 0.85em;
+            margin-bottom: 12px;
+            display: none;
+            font-weight: 500;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .modal-btn {
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, opacity 0.2s;
+            font-size: 0.95em;
+        }
+
+        .modal-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .modal-btn.cancel {
+            background: #f3f4f6;
+            color: #111;
+        }
+
+        .modal-btn.cancel:hover:not(:disabled) {
+            background: #e5e7eb;
+        }
+
+        .modal-btn.confirm {
+            background: #000;
+            color: #fff;
+        }
+
+        .modal-btn.confirm:hover:not(:disabled) {
+            background: #333;
+        }
+
+        .modal-btn.danger {
+            background: #ef4444;
+            color: #fff;
+        }
+
+        .modal-btn.danger:hover:not(:disabled) {
+            background: #dc2626;
+        }
+
+        .toast-notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            background: #ef4444;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.95em;
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s, transform 0.3s;
+            box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.3);
+        }
+
+        .toast-notification.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                position: absolute;
+                height: 100%;
+            }
+
+            .sidebar.mobile-hidden {
+                transform: translateX(-100%);
+            }
+
+            .main {
+                display: none;
+                width: 100%;
+            }
+
+            .main.mobile-show {
+                display: flex;
+            }
+
+            .back-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .msg-wrapper {
+                max-width: 90%;
+            }
+
+            .chat-header {
+                padding: 10px 15px;
+            }
+
+            .controls {
+                padding: 10px 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div id="toast" class="toast-notification"></div>
+
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <div class="search-container">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="searchInput" class="search-box" placeholder="Поиск пользователя...">
+        </div>
+        <button onclick="openGroupModal()" class="action-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <line x1="20" y1="8" x2="20" y2="14"></line>
+                <line x1="23" y1="11" x2="17" y2="11"></line>
+            </svg>
+            Создать группу
+        </button>
+    </div>
+    <div class="list-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+             stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        Люди
+    </div>
+    <ul class="user-list" id="userList" style="flex: none; max-height: 35vh;"></ul>
+    <div class="list-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+             stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+        Группы
+    </div>
+    <ul class="user-list" id="groupList"></ul>
+    <div style="flex: 1;"></div>
+    <div class="profile-panel">
+        <div class="profile-info">
+            <div class="profile-avatar" id="myAvatar">U</div>
+            <div class="profile-name" id="myUsername">Загрузка...</div>
+        </div>
+        <div class="profile-actions">
+            <button class="profile-btn danger" onclick="openDeleteAccountModal()" title="Удалить аккаунт">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"></path>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+            </button>
+            <button class="profile-btn" onclick="openLogoutModal()" title="Выйти">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="main" id="mainArea">
+    <div id="emptyState" class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+             stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+        <p>Выберите чат для начала общения</p>
+    </div>
+
+    <div id="chatArea" class="chat-area">
+        <div class="chat-header" id="chatHeader">
+            <div class="header-left">
+                <button class="back-btn" onclick="hideChatArea()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                </button>
+                <div id="currentChatLabel" class="chat-header-title"></div>
+            </div>
+            <button id="pfsBtn" class="pfs-btn" onclick="initPfs()" title="Начать сессию без сохранения на сервере">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                     stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                PFS
+            </button>
+            <button id="chatMenuBtn" class="chat-menu-btn" onclick="toggleChatMenu(event)" title="Действия">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                     stroke-linejoin="round">
+                    <circle cx="12" cy="5" r="1"></circle>
+                    <circle cx="12" cy="12" r="1"></circle>
+                    <circle cx="12" cy="19" r="1"></circle>
+                </svg>
+            </button>
+            <div id="chatDropdown" class="chat-dropdown">
+                <button class="chat-dropdown-item danger" id="dropdownDeleteChat" onclick="confirmDeleteChat()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                    Удалить чат
+                </button>
+                <button class="chat-dropdown-item danger" id="dropdownLeaveGroup" onclick="confirmLeaveGroup()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    Выйти из группы
+                </button>
+                <button class="chat-dropdown-item danger" id="dropdownDeleteGroup" onclick="confirmDeleteGroup()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                    Удалить группу
+                </button>
+            </div>
+        </div>
+
+        <div id="chat" style="position: relative;">
+            <button id="scrollBottomBtn" class="scroll-bottom-btn" onclick="scrollToBottom()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                     stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <polyline points="19 12 12 19 5 12"></polyline>
+                </svg>
+            </button>
+        </div>
+
+        <div id="dragOverlay" class="drag-overlay">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                 stroke-linejoin="round">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+            </svg>
+            <span>Перетяните файлы сюда</span>
+        </div>
+
+        <div id="uploadOverlay" class="upload-overlay">
+            <div class="spinner"></div>
+            <div id="uploadProgressText">Шифрование и загрузка...</div>
+        </div>
+
+        <div id="controlsWrapper">
+            <div id="attachmentsPreview"></div>
+            <div class="controls" id="controlsArea">
+                <input type="file" id="fileInput" style="display: none;" multiple onchange="handleFileSelect(event)">
+                <button class="icon-btn secondary" id="attachFileBtn"
+                        onclick="document.getElementById('fileInput').click()"
+                        aria-label="Прикрепить файл">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                    </svg>
+                </button>
+                <textarea id="messageInput" placeholder="Введите сообщение..." rows="1"
+                          oninput="updateSendButtonState()"></textarea>
+                <button class="icon-btn" id="btnSendMsg" onclick="sendMessage()" aria-label="Отправить" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round" style="transform: translateX(-1px) translateY(1px);">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="groupModalOverlay" class="modal-backdrop">
+    <div class="modal"><h3>Создать новую группу</h3>
+        <p class="desc">Участники получат зашифрованный доступ к общему чату.</p><input type="text" id="groupNameInput"
+                                                                                        placeholder="Название группы"
+                                                                                        autocomplete="off"
+                                                                                        oninput="validateGroupForm()"
+                                                                                        onblur="validateGroupForm()"
+                                                                                        onchange="validateGroupForm()">
+        <div id="groupNameError" class="input-error-text"></div>
+        <input type="text" id="groupMembersInput" placeholder="Логины участников (через запятую)" autocomplete="off"
+               oninput="validateGroupForm()" onblur="validateGroupForm()" onchange="validateGroupForm()">
+        <div id="groupMembersError" class="input-error-text"></div>
+        <div class="modal-actions">
+            <button class="modal-btn cancel" onclick="closeGroupModal()">Отмена</button>
+            <button class="modal-btn confirm" id="btnSubmitGroup" onclick="submitCreateGroup()" disabled>Создать
+            </button>
+        </div>
+    </div>
+</div>
+<div id="logoutModalOverlay" class="modal-backdrop">
+    <div class="modal"><h3>Выход из системы</h3>
+        <p class="desc">Вы уверены, что хотите выйти? Ваш сеанс будет завершен, а локальные ключи шифрования удалены с
+            устройства. Это действие необратимо.</p>
+        <div class="modal-actions">
+            <button class="modal-btn cancel" onclick="closeLogoutModal()">Отмена</button>
+            <button class="modal-btn danger" onclick="confirmLogout()">Выйти</button>
+        </div>
+    </div>
+</div>
+<div id="deleteAccountModalOverlay" class="modal-backdrop">
+    <div class="modal"><h3>Удаление аккаунта</h3>
+        <p class="desc" style="color:#ef4444;">Внимание! Ваш аккаунт, открытый ключ и доступы к группам будут навсегда
+            удалены.</p>
+        <div class="modal-actions">
+            <button class="modal-btn cancel" onclick="closeDeleteAccountModal()">Отмена</button>
+            <button class="modal-btn danger" onclick="confirmDeleteAccount()">Удалить навсегда</button>
+        </div>
+    </div>
+</div>
+<div id="deleteChatModalOverlay" class="modal-backdrop">
+    <div class="modal">
+        <h3 id="deleteChatModalTitle">Удалить чат?</h3>
+        <p class="desc" id="deleteChatModalDesc">Переписка будет удалена для обоих участников. Это действие
+            необратимо.</p>
+        <div class="modal-actions">
+            <button class="modal-btn cancel" onclick="closeDeleteChatModal()">Отмена</button>
+            <button class="modal-btn danger" id="btnConfirmDeleteChat" onclick="executeDeleteChat()">Удалить</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const token = sessionStorage.getItem('jwt_token');
+    const privateKeyB64 = sessionStorage.getItem('sc_private_key');
+    if (!token || !privateKeyB64) window.location.href = '/login';
+
+    let currentUserUuid = '';
+    let currentUsername = '';
+    let myPublicKeyB64 = null;
+    let myPrivateKey = null;
+    let stompClient = null;
+
+    let activeChatType = null;
+    let activeChatId = null;
+    let activeChatSharedKey = null;
+    let activeGroupCreatorUuid = null;
+
+    const pfsSessions = {};
+    let tempPfsKeyPair = null;
+
+    const chats = {};
+    const myGroupKeys = {};
+    const knownUsers = {};
+    const uuidToUsername = {};
+    const fileKeysRegistry = {};
+    const activeSubscriptions = new Set();
+    let pendingFiles = [];
+
+    const chatBox = document.getElementById('chat');
+    const scrollBottomBtn = document.getElementById('scrollBottomBtn');
+    const sidebar = document.getElementById('sidebar');
+    const mainArea = document.getElementById('mainArea');
+    const previewArea = document.getElementById('attachmentsPreview');
+    const dragOverlay = document.getElementById('dragOverlay');
+    const btnSendMsg = document.getElementById('btnSendMsg');
+    const pfsBtn = document.getElementById('pfsBtn');
+    const chatHeader = document.getElementById('chatHeader');
+
+    const iconFileSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>`;
+    const svgClock = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>`;
+    const svgCheck = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>`;
+    const svgError = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
+    const svgLock = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`;
+
+    function showToast(message) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeGroupModal();
+            closeLogoutModal();
+            closeDeleteAccountModal();
+            closeDeleteChatModal();
+        }
+    });
+    document.getElementById('groupNameInput').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('groupMembersInput').focus();
+        }
+    });
+    document.getElementById('groupMembersInput').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (!document.getElementById('btnSubmitGroup').disabled) submitCreateGroup();
+        }
+    });
+
+    let dragCounter = 0;
+    const chatAreaNode = document.getElementById('chatArea');
+    chatAreaNode.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        dragCounter++;
+        dragOverlay.classList.add('active');
+    });
+    chatAreaNode.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dragCounter--;
+        if (dragCounter === 0) dragOverlay.classList.remove('active');
+    });
+    chatAreaNode.addEventListener('dragover', (e) => {
+        e.preventDefault();
+    });
+    chatAreaNode.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dragCounter = 0;
+        dragOverlay.classList.remove('active');
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) processFiles(e.dataTransfer.files);
+    });
+
+    function b642buf(b64) {
+        const binary = window.atob(b64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return bytes.buffer;
+    }
+
+    function buf2b64(buffer) {
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+        return window.btoa(binary);
+    }
+
+    async function initCrypto() {
+        myPrivateKey = await window.crypto.subtle.importKey("pkcs8", b642buf(privateKeyB64), {
+            name: "ECDH",
+            namedCurve: "P-256"
+        }, false, ["deriveKey"]);
+    }
+
+    async function getSharedKey(theirPublicKeyB64) {
+        const theirPublicKey = await window.crypto.subtle.importKey("spki", b642buf(theirPublicKeyB64), {
+            name: "ECDH",
+            namedCurve: "P-256"
+        }, false, []);
+        return await window.crypto.subtle.deriveKey({
+            name: "ECDH",
+            public: theirPublicKey
+        }, myPrivateKey, {name: "AES-GCM", length: 256}, false, ["encrypt", "decrypt"]);
+    }
+
+    async function encryptText(text, key) {
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+        const encoded = new TextEncoder().encode(text);
+        const cipherBuffer = await window.crypto.subtle.encrypt({name: "AES-GCM", iv: iv}, key, encoded);
+        const combined = new Uint8Array(12 + cipherBuffer.byteLength);
+        combined.set(iv, 0);
+        combined.set(new Uint8Array(cipherBuffer), 12);
+        return buf2b64(combined.buffer);
+    }
+
+    async function decryptText(b64, key) {
+        const combined = new Uint8Array(b642buf(b64));
+        const iv = combined.slice(0, 12);
+        const data = combined.slice(12);
+        const plainBuffer = await window.crypto.subtle.decrypt({name: "AES-GCM", iv: iv}, key, data);
+        return new TextDecoder().decode(plainBuffer);
+    }
+
+    fetch('/api/user', {headers: {'Authorization': 'Bearer ' + token}})
+        .then(res => {
+            if (res.status === 401) confirmLogout();
+            return res.json();
+        })
+        .then(async data => {
+            currentUsername = data.username;
+            currentUserUuid = data.uuid;
+            uuidToUsername[currentUserUuid] = currentUsername;
+            document.getElementById('myUsername').textContent = currentUsername;
+            document.getElementById('myAvatar').textContent = currentUsername.charAt(0).toUpperCase();
+            const meRes = await fetch('/api/auth/search?q=' + encodeURIComponent(currentUsername), {headers: {'Authorization': 'Bearer ' + token}});
+            const meData = await meRes.json();
+            const mySelf = meData.find(u => u.username === currentUsername);
+            if (mySelf) myPublicKeyB64 = mySelf.publicKey;
+            await initCrypto();
+            connect();
+        });
+
+    function connect() {
+        const socket = new SockJS('/ws');
+        stompClient = Stomp.over(socket);
+        stompClient.debug = null;
+        stompClient.connect({'Authorization': 'Bearer ' + token}, function () {
+            activeSubscriptions.clear();
+
+            stompClient.subscribe('/user/queue/messages', async function (message) {
+                try {
+                    let msg = JSON.parse(message.body);
+                    await handleIncomingMessage(msg);
+                } catch (e) {
+                    console.error("Ошибка STOMP:", e);
+                }
+            });
+
+            stompClient.subscribe('/user/queue/new-group', function () {
+                loadGroups();
+            });
+
+            stompClient.subscribe('/user/queue/group-deleted', function (message) {
+                const groupId = parseInt(message.body);
+                const list = document.getElementById('groupList');
+                const li = Array.from(list.children).find(el => el.dataset.groupId == groupId);
+                if (li) li.remove();
+                delete chats["group_" + groupId];
+                delete myGroupKeys[groupId];
+                if (activeChatType === 'GROUP' && activeChatId === groupId) {
+                    activeChatId = null;
+                    activeChatType = null;
+                    activeGroupCreatorUuid = null;
+                    document.getElementById('chatArea').style.display = 'none';
+                    document.getElementById('emptyState').style.display = 'flex';
+                }
+                showToast("Группа была удалена создателем.");
+            });
+
+            stompClient.subscribe('/user/queue/user-deleted', function(message) {
+                const deletedUuid = message.body;
+                const list = document.getElementById('userList');
+                const li = Array.from(list.children).find(el => el.dataset.uuid === deletedUuid);
+                if (li) li.remove();
+                delete chats[deletedUuid];
+                delete knownUsers[deletedUuid];
+                delete uuidToUsername[deletedUuid];
+                delete pfsSessions[deletedUuid];
+                if (activeChatId === deletedUuid) {
+                    activeChatId = null; activeChatType = null; activeChatSharedKey = null;
+                    document.getElementById('chatMenuBtn').style.display = 'none';
+                    document.getElementById('chatArea').style.display = 'none';
+                    document.getElementById('emptyState').style.display = 'flex';
+                }
+                showToast("Пользователь удалил свой аккаунт.");
+            });
+
+            stompClient.subscribe('/user/queue/chat-deleted', function (message) {
+                const deletedUuid = message.body;
+                delete chats[deletedUuid];
+                const list = document.getElementById('userList');
+                const li = Array.from(list.children).find(el => el.dataset.uuid === deletedUuid);
+                if (li) li.remove();
+                if (activeChatType === 'P2P' && activeChatId === deletedUuid) {
+                    activeChatId = null;
+                    activeChatType = null;
+                    activeChatSharedKey = null;
+                    document.getElementById('chatMenuBtn').style.display = 'none';
+                    document.getElementById('chatArea').style.display = 'none';
+                    document.getElementById('emptyState').style.display = 'flex';
+                }
+            });
+
+            loadGroups();
+            loadActiveContacts();
+        }, () => setTimeout(connect, 3000));
+    }
+
+    async function loadActiveContacts() {
+        try {
+            const res = await fetch('/api/contacts', {headers: {'Authorization': 'Bearer ' + token}});
+            if (res.ok) {
+                const contacts = await res.json();
+
+                let unreadSenders = [];
+                try {
+                    const unreadRes = await fetch('/api/messages/unread', {headers: {'Authorization': 'Bearer ' + token}});
+                    if (unreadRes.ok) unreadSenders = await unreadRes.json();
+                } catch (e) {
+                }
+
+                contacts.forEach(u => {
+                    if (u.uuid === currentUserUuid) return;
+                    knownUsers[u.uuid] = u;
+                    uuidToUsername[u.uuid] = u.username;
+                    addPersonToSidebar(u.uuid, u.username);
+                    if (unreadSenders.includes(u.uuid)) showUnreadDot(u.uuid);
+                });
+            }
+        } catch (e) {
+        }
+    }
+
+    function addPersonToSidebar(uuid, username) {
+        if (uuid === currentUserUuid) return;
+        const list = document.getElementById('userList');
+        if (Array.from(list.children).some(li => li.dataset.uuid === uuid)) return;
+        const li = document.createElement('li');
+        li.className = 'user-item';
+        li.dataset.uuid = uuid;
+        li.innerHTML = `<span>${escapeHtml(username)}</span><div class="badge"></div>`;
+        li.onclick = () => {
+            li.querySelector('.badge').style.display = 'none';
+            document.querySelectorAll('.user-item').forEach(el => el.classList.remove('active'));
+            li.classList.add('active');
+            openP2PChat(knownUsers[uuid] || {uuid: uuid, username: username});
+            fetch('/api/messages/read/' + uuid, {
+                method: 'POST',
+                headers: {'Authorization': 'Bearer ' + token}
+            }).catch(() => {
+            });
+        };
+        list.appendChild(li);
+    }
+
+    function showUnreadDot(uuid) {
+        const list = document.getElementById('userList');
+        const li = Array.from(list.children).find(el => el.dataset.uuid === uuid);
+        if (li) li.querySelector('.badge').style.display = 'block';
+    }
+
+    document.getElementById('searchInput').addEventListener('input', function (e) {
+        const q = e.target.value.trim();
+        const list = document.getElementById('userList');
+        if (q.length === 0) {
+            list.innerHTML = '';
+            Object.keys(chats).forEach(id => {
+                if (!id.startsWith("group_") && id !== currentUserUuid) {
+                    if (chats[id].length > 0 || id === activeChatId) addPersonToSidebar(id, uuidToUsername[id] || "Неизвестный");
+                }
+            });
+            return;
+        }
+        fetch('/api/auth/search?q=' + encodeURIComponent(q), {headers: {'Authorization': 'Bearer ' + token}})
+            .then(r => r.json()).then(users => {
+            list.innerHTML = '';
+            users.forEach(u => {
+                if (u.uuid === currentUserUuid) return;
+                knownUsers[u.uuid] = u;
+                uuidToUsername[u.uuid] = u.username;
+                addPersonToSidebar(u.uuid, u.username);
+            });
+        });
+    });
+
+    async function loadGroups() {
+        const r = await fetch('/api/groups', {headers: {'Authorization': 'Bearer ' + token}});
+        const groups = await r.json();
+        const list = document.getElementById('groupList');
+        list.innerHTML = '';
+
+        let unreadGroups = [];
+        try {
+            const unreadRes = await fetch('/api/messages/unread-groups', {headers: {'Authorization': 'Bearer ' + token}});
+            if (unreadRes.ok) unreadGroups = await unreadRes.json();
+        } catch (e) {
+        }
+
+        for (const g of groups) {
+            if (!myGroupKeys[g.id]) {
+                try {
+                    const parts = g.encryptedKey.split('|');
+                    if (parts.length === 3) {
+                        const inviterPubKey = parts[0];
+                        const inviterUsername = parts[1];
+                        const actualEncryptedKey = parts[2];
+                        knownUsers[g.addedBy] = {uuid: g.addedBy, username: inviterUsername, publicKey: inviterPubKey};
+                        uuidToUsername[g.addedBy] = inviterUsername;
+                        const sharedSecret = await getSharedKey(inviterPubKey);
+                        const envelope = new Uint8Array(b642buf(actualEncryptedKey));
+                        const iv = envelope.slice(0, 12);
+                        const data = envelope.slice(12);
+                        const rawAesBuffer = await window.crypto.subtle.decrypt({
+                            name: "AES-GCM",
+                            iv: iv
+                        }, sharedSecret, data);
+                        myGroupKeys[g.id] = await window.crypto.subtle.importKey("raw", rawAesBuffer, {name: "AES-GCM"}, false, ["encrypt", "decrypt"]);
+                    }
+                } catch (e) {
+                }
+            }
+            if (!activeSubscriptions.has(g.id) && myGroupKeys[g.id]) {
+                stompClient.subscribe('/topic/group/' + g.id, function (message) {
+                    handleIncomingGroupMessage(JSON.parse(message.body));
+                });
+                activeSubscriptions.add(g.id);
+            }
+            let decryptedName = "Зашифрованная группа";
+            if (myGroupKeys[g.id]) {
+                try {
+                    decryptedName = await decryptText(g.name, myGroupKeys[g.id]);
+                } catch (e) {
+                }
+            }
+            const li = document.createElement('li');
+            li.className = 'user-item';
+            li.dataset.groupId = g.id;
+            li.innerHTML = `<span>${escapeHtml(decryptedName)}</span><div class="badge"></div>`;
+
+            li.onclick = () => {
+                li.querySelector('.badge').style.display = 'none';
+                document.querySelectorAll('.user-item').forEach(el => el.classList.remove('active'));
+                li.classList.add('active');
+                openGroupChat({id: g.id, name: decryptedName, creatorUuid: g.creatorUuid});
+
+                fetch('/api/messages/read-group/' + g.id, {
+                    method: 'POST',
+                    headers: {'Authorization': 'Bearer ' + token}
+                }).catch(() => {
+                });
+            };
+
+            list.appendChild(li);
+
+            if (unreadGroups.includes(g.id)) li.querySelector('.badge').style.display = 'block';
+        }
+    }
+
+    function openGroupModal() {
+        document.getElementById('groupModalOverlay').classList.add('show');
+        document.getElementById('groupNameInput').focus();
+    }
+
+    function closeGroupModal() {
+        document.getElementById('groupModalOverlay').classList.remove('show');
+        document.getElementById('groupNameInput').value = '';
+        document.getElementById('groupMembersInput').value = '';
+    }
+
+    function validateGroupForm() {
+        const nameInput = document.getElementById('groupNameInput').value.trim();
+        const usersInput = document.getElementById('groupMembersInput').value.trim();
+        const btn = document.getElementById('btnSubmitGroup');
+        let isValid = true;
+        if (!nameInput) {
+            isValid = false;
+        }
+        const usernames = usersInput ? usersInput.split(',').map(s => s.trim()).filter(s => s) : [];
+        if (usernames.length === 0 || (usernames.length === 1 && usernames[0].toLowerCase() === currentUsername.toLowerCase())) {
+            isValid = false;
+        }
+        btn.disabled = !isValid;
+        return isValid;
+    }
+
+    function openLogoutModal() {
+        document.getElementById('logoutModalOverlay').classList.add('show');
+    }
+
+    function closeLogoutModal() {
+        document.getElementById('logoutModalOverlay').classList.remove('show');
+    }
+
+    function confirmLogout() {
+        sessionStorage.clear();
+        window.location.href = '/login';
+    }
+
+    function openDeleteAccountModal() {
+        document.getElementById('deleteAccountModalOverlay').classList.add('show');
+    }
+
+    function closeDeleteAccountModal() {
+        document.getElementById('deleteAccountModalOverlay').classList.remove('show');
+    }
+
+    async function confirmDeleteAccount() {
+        try {
+            const token = sessionStorage.getItem('jwt_token');
+            const res = await fetch('/api/auth/delete-account', {
+                method: 'DELETE',
+                headers: {'Authorization': 'Bearer ' + token}
+            });
+            if (res.ok) confirmLogout();
+        } catch (e) {
+        }
+    }
+
+    async function submitCreateGroup() {
+        if (!validateGroupForm()) return;
+        const name = document.getElementById('groupNameInput').value.trim();
+        const usersStr = document.getElementById('groupMembersInput').value.trim();
+        let usernames = usersStr ? usersStr.split(',').map(s => s.trim()).filter(s => s) : [];
+        usernames.push(currentUsername);
+        usernames = [...new Set(usernames)];
+        const aesKey = await window.crypto.subtle.generateKey({
+            name: "AES-GCM",
+            length: 256
+        }, true, ["encrypt", "decrypt"]);
+        const rawAesBuffer = await window.crypto.subtle.exportKey("raw", aesKey);
+        const encryptedGroupName = await encryptText(name, aesKey);
+        const membersPayload = [];
+
+        const notFound = [];
+        for (const un of usernames) {
+            const r = await fetch('/api/auth/search?q=' + encodeURIComponent(un), {headers: {'Authorization': 'Bearer ' + token}});
+            const users = await r.json();
+            const userData = users.find(u => u.username.toLowerCase() === un.toLowerCase());
+
+            if (!userData) {
+                if (un !== currentUsername) notFound.push(un);
+                continue;
+            }
+
+            const sharedSecret = await getSharedKey(userData.publicKey);
+            const iv = window.crypto.getRandomValues(new Uint8Array(12));
+            const cipherBuffer = await window.crypto.subtle.encrypt({
+                name: "AES-GCM",
+                iv: iv
+            }, sharedSecret, rawAesBuffer);
+            const combined = new Uint8Array(12 + cipherBuffer.byteLength);
+            combined.set(iv, 0);
+            combined.set(new Uint8Array(cipherBuffer), 12);
+            const finalEncryptedKey = myPublicKeyB64 + "|" + currentUsername + "|" + buf2b64(combined.buffer);
+            membersPayload.push({uuid: userData.uuid, encryptedKey: finalEncryptedKey});
+        }
+
+        if (notFound.length > 0) {
+            showToast('Пользователи не найдены: ' + notFound.join(', '));
+            return;
+        }
+
+        if (membersPayload.length > 0) {
+            await fetch('/api/groups', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
+                body: JSON.stringify({name: encryptedGroupName, members: membersPayload})
+            });
+            loadGroups();
+        }
+
+        closeGroupModal();
+    }
+
+    function showChatArea() {
+        document.getElementById('emptyState').style.display = 'none';
+        document.getElementById('chatArea').style.display = 'flex';
+        if (window.innerWidth <= 768) {
+            sidebar.classList.add('mobile-hidden');
+            mainArea.classList.add('mobile-show');
+        }
+    }
+
+    function hideChatArea() {
+        sidebar.classList.remove('mobile-hidden');
+        mainArea.classList.remove('mobile-show');
+    }
+
+    function disablePfsUI() {
+        chatHeader.classList.remove('pfs-mode');
+        pfsBtn.style.background = '';
+        pfsBtn.style.color = '';
+        pfsBtn.style.borderColor = '';
+        pfsBtn.innerHTML = `${svgLock} PFS`;
+        pfsBtn.onclick = initPfs;
+
+        document.getElementById('attachFileBtn').disabled = false;
+        document.getElementById('attachFileBtn').style.opacity = '';
+    }
+
+    function activatePfsUI() {
+        chatHeader.classList.add('pfs-mode');
+        pfsBtn.style.background = '#ef4444';
+        pfsBtn.style.color = '#fff';
+        pfsBtn.style.borderColor = '#ef4444';
+        const svgClose = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px; height:14px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+        pfsBtn.innerHTML = `${svgClose} Закрыть PFS`;
+        pfsBtn.onclick = closePfs;
+
+        document.getElementById('attachFileBtn').disabled = true;
+        document.getElementById('attachFileBtn').style.opacity = '0.4';
+    }
+
+    async function closePfs() {
+        if (!activeChatId) return;
+        try {
+            await fetch('/send/pfs', {
+                method: 'POST', headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
+                body: JSON.stringify({recipient: activeChatId, content: '[PFS_CLOSE]'})
+            });
+        } catch (e) {
+        }
+
+        delete pfsSessions[activeChatId];
+        if (chats[activeChatId]) {
+            chats[activeChatId] = chats[activeChatId].filter(m => !m.isPfs);
+        }
+
+        disablePfsUI();
+        renderChat();
+        showToast("Секретный чат завершен.");
+    }
+
+    async function initPfs() {
+        if (pfsSessions[activeChatId]) {
+            showToast("PFS уже активен.");
+            return;
+        }
+        try {
+            tempPfsKeyPair = await window.crypto.subtle.generateKey({
+                name: "ECDH",
+                namedCurve: "P-256"
+            }, true, ["deriveKey"]);
+            const rawPub = await window.crypto.subtle.exportKey("raw", tempPfsKeyPair.publicKey);
+            const payload = `[PFS_INIT]|${buf2b64(rawPub)}`;
+            await fetch('/send/pfs', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
+                body: JSON.stringify({recipient: activeChatId, content: payload})
+            });
+            showToast("Запрос на PFS-сессию отправлен...");
+        } catch (e) {
+            showToast("Ошибка инициализации PFS");
+        }
+    }
+
+    async function openP2PChat(user) {
+        activeChatType = 'P2P';
+        activeChatId = user.uuid;
+        activeGroupCreatorUuid = null;
+        document.getElementById('currentChatLabel').innerHTML = escapeHtml(user.username);
+        pfsBtn.style.display = 'flex';
+        const menuBtn = document.getElementById('chatMenuBtn');
+        menuBtn.style.display = 'flex';
+        document.getElementById('dropdownDeleteChat').style.display = 'flex';
+        document.getElementById('dropdownLeaveGroup').style.display = 'none';
+        document.getElementById('dropdownDeleteGroup').style.display = 'none';
+        if (pfsSessions[activeChatId]) {
+            activatePfsUI();
+        } else {
+            disablePfsUI();
+        }
+        showChatArea();
+
+        if (!activeChatSharedKey || !chats[activeChatId]) {
+            if (user.publicKey) activeChatSharedKey = await getSharedKey(user.publicKey);
+        }
+
+        if (chats[activeChatId] && chats[activeChatId].length > 0) {
+            renderChat();
+        } else {
+            chatBox.innerHTML = '<div style="text-align:center; margin-top:20px;"><div class="spinner" style="display:inline-block; border-top-color:#000;"></div></div>';
+        }
+
+        try {
+            const res = await fetch('/api/messages/p2p/' + activeChatId, {headers: {'Authorization': 'Bearer ' + token}});
+            const history = await res.json();
+
+            const wsMessages = chats[activeChatId] || [];
+            chats[activeChatId] = [];
+
+            for (let msg of history) {
+                if (msg.content.startsWith('[PFS_')) continue;
+                try {
+                    const parts = msg.content.split('|');
+                    if (parts.length !== 3) continue;
+                    const encryptedB64 = parts[2];
+                    const text = await decryptText(encryptedB64, activeChatSharedKey);
+                    try {
+                        let parsed = JSON.parse(text);
+                        if (parsed.type === 'complex' && parsed.files) parsed.files.forEach(f => fileKeysRegistry[f.objectName] = f.fileKey);
+                    } catch (e) {
+                    }
+
+                    chats[activeChatId].push({
+                        id: Date.now() + Math.random(),
+                        senderUuid: msg.sender,
+                        text: text,
+                        originalText: text,
+                        status: 'sent',
+                        isPfs: false
+                    });
+                } catch (err) {
+                }
+            }
+
+            for (let wsMsg of wsMessages) {
+                if (!chats[activeChatId].some(m => m.originalText === wsMsg.originalText && m.senderUuid === wsMsg.senderUuid)) {
+                    chats[activeChatId].push(wsMsg);
+                }
+            }
+        } catch (e) {
+            if (!chats[activeChatId]) chats[activeChatId] = [];
+        }
+        renderChat();
+        document.getElementById('messageInput').focus();
+    }
+
+    async function openGroupChat(group) {
+        activeChatType = 'GROUP';
+        activeChatId = group.id;
+        activeGroupCreatorUuid = group.creatorUuid || null;
+        document.getElementById('currentChatLabel').innerHTML = escapeHtml(group.name);
+        pfsBtn.style.display = 'none';
+        disablePfsUI();
+        const menuBtn = document.getElementById('chatMenuBtn');
+        menuBtn.style.display = 'flex';
+        document.getElementById('dropdownDeleteChat').style.display = 'none';
+        const isCreator = activeGroupCreatorUuid === currentUserUuid;
+        document.getElementById('dropdownLeaveGroup').style.display = isCreator ? 'none' : 'flex';
+        document.getElementById('dropdownDeleteGroup').style.display = isCreator ? 'flex' : 'none';
+        showChatArea();
+
+        if (chats["group_" + activeChatId] && chats["group_" + activeChatId].length > 0) {
+            renderChat();
+        } else {
+            chatBox.innerHTML = '<div style="text-align:center; margin-top:20px;"><div class="spinner" style="display:inline-block; border-top-color:#000;"></div></div>';
+        }
+
+        try {
+            const res = await fetch('/api/messages/group/' + activeChatId, {headers: {'Authorization': 'Bearer ' + token}});
+            const history = await res.json();
+
+            const wsMessages = chats["group_" + activeChatId] || [];
+            chats["group_" + activeChatId] = [];
+
+            const groupKey = myGroupKeys[activeChatId];
+            if (groupKey) {
+                for (let msg of history) {
+                    try {
+                        const parts = msg.content.split('|');
+                        if (parts.length !== 2) continue;
+                        const encryptedB64 = parts[1];
+                        const text = await decryptText(encryptedB64, groupKey);
+                        try {
+                            let parsed = JSON.parse(text);
+                            if (parsed.type === 'complex' && parsed.files) parsed.files.forEach(f => fileKeysRegistry[f.objectName] = f.fileKey);
+                        } catch (e) {
+                        }
+
+                        chats["group_" + activeChatId].push({
+                            id: Date.now() + Math.random(),
+                            senderUuid: msg.sender,
+                            text: text,
+                            originalText: text,
+                            status: 'sent',
+                            isPfs: false
+                        });
+                    } catch (err) {
+                    }
+                }
+            }
+
+            for (let wsMsg of wsMessages) {
+                if (!chats["group_" + activeChatId].some(m => m.originalText === wsMsg.originalText && m.senderUuid === wsMsg.senderUuid)) {
+                    chats["group_" + activeChatId].push(wsMsg);
+                }
+            }
+        } catch (e) {
+            if (!chats["group_" + activeChatId]) chats["group_" + activeChatId] = [];
+        }
+        renderChat();
+        document.getElementById('messageInput').focus();
+    }
+
+    function renderChat() {
+        chatBox.innerHTML = '';
+        const chatKey = activeChatType === 'P2P' ? activeChatId : "group_" + activeChatId;
+        if (!chats[chatKey]) return;
+
+        chats[chatKey].forEach(msg => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'msg-wrapper ' + (msg.senderUuid === currentUserUuid ? 'mine' : 'theirs');
+            if (msg.isPfs) wrapper.classList.add('pfs-msg');
+
+            let innerHtml = '';
+            const displaySender = uuidToUsername[msg.senderUuid] || "Пользователь";
+            if (activeChatType === 'GROUP' && msg.senderUuid !== currentUserUuid) {
+                innerHtml += `<div class="sender-name">${escapeHtml(displaySender)}</div>`;
+            }
+
+            let parsedPayload = null;
+            try {
+                parsedPayload = JSON.parse(msg.text);
+            } catch (e) {
+            }
+            innerHtml += `<div class="msg-bubble">`;
+
+            if (parsedPayload && parsedPayload.type === 'complex') {
+                if (parsedPayload.text) {
+                    innerHtml += `<div class="msg-text">${escapeHtml(parsedPayload.text)}</div>`;
+                }
+                if (parsedPayload.files && parsedPayload.files.length > 0) {
+                    parsedPayload.files.forEach(f => {
+                        innerHtml += `<div class="file-box" onclick="downloadFile('${f.objectName}', '${escapeHtml(f.fileName)}', '${f.mimeType}', ${f.originalSize})">${iconFileSVG} <span>${escapeHtml(f.fileName)}</span></div>`;
+                    });
+                }
+            } else {
+                innerHtml += `<div class="msg-text">${escapeHtml(msg.text)}</div>`;
+            }
+
+            if (msg.senderUuid === currentUserUuid) {
+                let icon = svgCheck;
+                let statusClass = '';
+                let clickAction = '';
+                if (msg.status === 'pending') {
+                    icon = svgClock;
+                } else if (msg.status === 'error') {
+                    icon = svgError;
+                    statusClass = 'error';
+                    clickAction = `onclick="retryMessage('${chatKey}', '${msg.id}')" style="cursor:pointer;" title="Ошибка. Повторить отправку"`;
+                }
+
+                let pfsTag = msg.isPfs ? `<div class="pfs-icon" title="PFS Сообщение">${svgLock}</div>` : '';
+                innerHtml += `<div class="msg-status ${statusClass}" ${clickAction}>${pfsTag}${icon}</div>`;
+            }
+
+            innerHtml += `</div>`;
+            wrapper.innerHTML = innerHtml;
+            chatBox.appendChild(wrapper);
+        });
+        scrollToBottom();
+    }
+
+    function updateScrollButtonPosition() {
+        const controlsHeight = controlsArea.offsetHeight;
+        scrollBottomBtn.style.bottom = (controlsHeight + 20) + 'px';
+    }
+
+    chatBox.addEventListener('scroll', () => {
+        if (chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight > 100) {
+            scrollBottomBtn.classList.add('show');
+            updateScrollButtonPosition();
+        } else {
+            scrollBottomBtn.classList.remove('show');
+        }
+    });
+
+    function scrollToBottom() {
+        chatBox.scrollTo({top: chatBox.scrollHeight, behavior: 'smooth'});
+    }
+
+    function updateSendButtonState() {
+        const text = document.getElementById('messageInput').value.trim();
+        btnSendMsg.disabled = (text.length === 0 && pendingFiles.length === 0);
+    }
+
+    async function handleIncomingMessage(msgObj) {
+        const senderUuid = msgObj.sender;
+        if (senderUuid === currentUserUuid && msgObj.recipient === currentUserUuid) return;
+        if (!chats[senderUuid]) chats[senderUuid] = [];
+
+        let senderUsername = "Пользователь";
+        if (!msgObj.content.startsWith('[PFS_')) {
+            const parts = msgObj.content.split('|');
+            if (parts.length === 3) senderUsername = parts[1];
+        }
+
+        if (activeChatType === 'P2P' && activeChatId === senderUuid) {
+            fetch('/api/messages/read/' + senderUuid, {
+                method: 'POST',
+                headers: {'Authorization': 'Bearer ' + token}
+            }).catch(() => {
+            });
+        } else {
+            if (!knownUsers[senderUuid]) {
+                uuidToUsername[senderUuid] = senderUsername;
+                knownUsers[senderUuid] = {uuid: senderUuid, username: senderUsername};
+                addPersonToSidebar(senderUuid, senderUsername);
+                loadActiveContacts();
+            } else {
+                addPersonToSidebar(senderUuid, uuidToUsername[senderUuid] || senderUsername);
+            }
+            showUnreadDot(senderUuid);
+        }
+
+        if (msgObj.content.startsWith('[PFS_')) {
+            const parts = msgObj.content.split('|');
+            const type = parts[0];
+            if (type === '[PFS_INIT]') {
+                try {
+                    const theirPubB64 = parts[1];
+                    const localPair = await window.crypto.subtle.generateKey({
+                        name: "ECDH",
+                        namedCurve: "P-256"
+                    }, true, ["deriveKey"]);
+                    const theirPub = await window.crypto.subtle.importKey("raw", b642buf(theirPubB64), {
+                        name: "ECDH",
+                        namedCurve: "P-256"
+                    }, false, []);
+                    const derivedKey = await window.crypto.subtle.deriveKey({
+                        name: "ECDH",
+                        public: theirPub
+                    }, localPair.privateKey, {name: "AES-GCM", length: 256}, false, ["encrypt", "decrypt"]);
+                    pfsSessions[senderUuid] = derivedKey;
+                    const myPubRaw = await window.crypto.subtle.exportKey("raw", localPair.publicKey);
+                    const payload = `[PFS_ACK]|${buf2b64(myPubRaw)}`;
+                    await fetch('/send/pfs', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
+                        body: JSON.stringify({recipient: senderUuid, content: payload})
+                    });
+                    if (activeChatId === senderUuid) activatePfsUI();
+                    showToast("Собеседник инициировал PFS сессию.");
+                } catch (e) {
+                }
+                return;
+            } else if (type === '[PFS_ACK]') {
+                try {
+                    const theirPubB64 = parts[1];
+                    const theirPub = await window.crypto.subtle.importKey("raw", b642buf(theirPubB64), {
+                        name: "ECDH",
+                        namedCurve: "P-256"
+                    }, false, []);
+                    const derivedKey = await window.crypto.subtle.deriveKey({
+                        name: "ECDH",
+                        public: theirPub
+                    }, tempPfsKeyPair.privateKey, {name: "AES-GCM", length: 256}, false, ["encrypt", "decrypt"]);
+                    pfsSessions[senderUuid] = derivedKey;
+                    tempPfsKeyPair = null;
+                    if (activeChatId === senderUuid) activatePfsUI();
+                    showToast("PFS сессия успешно установлена!");
+                } catch (e) {
+                }
+                return;
+            } else if (type === '[PFS_MSG]') {
+                try {
+                    const encryptedB64 = parts[1];
+                    const sessionKey = pfsSessions[senderUuid];
+                    if (!sessionKey) return;
+                    const text = await decryptText(encryptedB64, sessionKey);
+                    chats[senderUuid].push({
+                        id: Date.now().toString(),
+                        senderUuid: senderUuid,
+                        text: text,
+                        originalText: text,
+                        status: 'sent',
+                        isPfs: true
+                    });
+                    if (activeChatType === 'P2P' && activeChatId === senderUuid) renderChat();
+                } catch (e) {
+                }
+                return;
+            } else if (type === '[PFS_CLOSE]') {
+                delete pfsSessions[senderUuid];
+                if (chats[senderUuid]) chats[senderUuid] = chats[senderUuid].filter(m => !m.isPfs);
+                if (activeChatId === senderUuid) {
+                    disablePfsUI();
+                    renderChat();
+                    showToast("Собеседник завершил секретную сессию.");
+                }
+                return;
+            }
+        }
+
+        try {
+            const parts = msgObj.content.split('|');
+            if (parts.length !== 3) return;
+            const senderPubKey = parts[0];
+            const encryptedB64 = parts[2];
+            knownUsers[senderUuid] = {uuid: senderUuid, username: senderUsername, publicKey: senderPubKey};
+            uuidToUsername[senderUuid] = senderUsername;
+
+            let sharedKey = (activeChatType === 'P2P' && activeChatId === senderUuid) ? activeChatSharedKey : null;
+            if (!sharedKey && senderPubKey && senderPubKey !== "null") {
+                sharedKey = await getSharedKey(senderPubKey);
+            }
+
+            if (sharedKey) {
+                const text = await decryptText(encryptedB64, sharedKey);
+                try {
+                    let parsed = JSON.parse(text);
+                    if (parsed.type === 'complex' && parsed.files) parsed.files.forEach(f => fileKeysRegistry[f.objectName] = f.fileKey);
+                } catch (e) {
+                }
+                chats[senderUuid].push({
+                    id: Date.now() + Math.random(),
+                    senderUuid: senderUuid,
+                    text: text,
+                    originalText: text,
+                    status: 'sent',
+                    isPfs: false
+                });
+                if (activeChatType === 'P2P' && activeChatId === senderUuid) {
+                    renderChat();
+                }
+            }
+        } catch (err) {
+            console.error("Ошибка дешифровки, но индикатор уже горит!", err);
+        }
+    }
+
+    async function handleIncomingGroupMessage(msgObj) {
+        const groupId = msgObj.groupId;
+        const senderUuid = msgObj.sender;
+        if (senderUuid === currentUserUuid) return;
+        if (!chats["group_" + groupId]) chats["group_" + groupId] = [];
+        try {
+            const groupKey = myGroupKeys[groupId];
+            if (groupKey) {
+                const parts = msgObj.content.split('|');
+                if (parts.length !== 2) return;
+                const senderUsername = parts[0];
+                const encryptedB64 = parts[1];
+                uuidToUsername[senderUuid] = senderUsername;
+                const text = await decryptText(encryptedB64, groupKey);
+                try {
+                    let parsed = JSON.parse(text);
+                    if (parsed.type === 'complex' && parsed.files) parsed.files.forEach(f => fileKeysRegistry[f.objectName] = f.fileKey);
+                } catch (e) {
+                }
+                chats["group_" + groupId].push({
+                    id: Date.now() + Math.random(),
+                    senderUuid: senderUuid,
+                    text: text,
+                    originalText: text,
+                    status: 'sent',
+                    isPfs: false
+                });
+                if (activeChatType === 'GROUP' && activeChatId === groupId) {
+                    renderChat();
+                } else {
+                    const li = Array.from(document.getElementById('groupList').children).find(el => el.dataset.groupId == groupId);
+                    if (li) li.querySelector('.badge').style.display = 'block';
+                }
+            }
+        } catch (err) {
+        }
+    }
+
+    function handleFileSelect(event) {
+        processFiles(event.target.files);
+        event.target.value = '';
+    }
+
+    function processFiles(files) {
+        if (!files || files.length === 0) return;
+
+        if (activeChatType === 'P2P' && pfsSessions[activeChatId]) {
+            showToast("Файлы недоступны в PFS режиме");
+            return;
+        }
+
+        for (let file of files) {
+            if (file.size > 2147483648) {
+                showToast(`Файл слишком большой`);
+                continue;
+            }
+            pendingFiles.push(file);
+        }
+        renderAttachmentsPreview();
+        updateSendButtonState();
+        document.getElementById('messageInput').focus();
+    }
+
+    function removePendingFile(index) {
+        pendingFiles.splice(index, 1);
+        renderAttachmentsPreview();
+        updateSendButtonState();
+        document.getElementById('messageInput').focus();
+    }
+
+    function renderAttachmentsPreview() {
+        if (pendingFiles.length === 0) {
+            previewArea.style.display = 'none';
+        } else {
+            previewArea.style.display = 'flex';
+            previewArea.innerHTML = '';
+            const svgCloseIcon = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+            pendingFiles.forEach((file, index) => {
+                const chip = document.createElement('div');
+                chip.className = 'preview-chip';
+                chip.innerHTML = `<div style="display:flex; align-items:center; gap:6px; overflow:hidden;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg><span>${escapeHtml(file.name)}</span></div><div class="preview-remove" onclick="removePendingFile(${index})">${svgCloseIcon}</div>`;
+                previewArea.appendChild(chip);
+            });
+        }
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('messageInput');
+        const text = input.value.trim();
+        if (!activeChatId) return;
+        if (pendingFiles.length === 0 && !text) return;
+        input.value = '';
+        input.style.height = '46px';
+        updateSendButtonState();
+        let uploadedFilesData = [];
+
+        if (pendingFiles.length > 0) {
+            const overlay = document.getElementById('uploadOverlay');
+            const progressText = document.getElementById('uploadProgressText');
+            overlay.style.display = 'flex';
+            try {
+                for (let i = 0; i < pendingFiles.length; i++) {
+                    const file = pendingFiles[i];
+                    progressText.textContent = `Шифрование файла ${i + 1} из ${pendingFiles.length}...`;
+                    const arrayBuffer = await file.arrayBuffer();
+                    const originalSize = arrayBuffer.byteLength;
+                    const CHUNK_SIZE = 1024 * 1024;
+                    const paddedSize = Math.ceil(originalSize / CHUNK_SIZE) * CHUNK_SIZE;
+                    const paddedBuffer = new Uint8Array(paddedSize);
+                    paddedBuffer.set(new Uint8Array(arrayBuffer), 0);
+                    const fileKey = await window.crypto.subtle.generateKey({
+                        name: "AES-GCM",
+                        length: 256
+                    }, true, ["encrypt", "decrypt"]);
+                    const rawKeyBuffer = await window.crypto.subtle.exportKey("raw", fileKey);
+                    const fileKeyB64 = buf2b64(rawKeyBuffer);
+                    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+                    const cipherBuffer = await window.crypto.subtle.encrypt({
+                        name: "AES-GCM",
+                        iv: iv
+                    }, fileKey, paddedBuffer.buffer);
+                    const combined = new Uint8Array(12 + cipherBuffer.byteLength);
+                    combined.set(iv, 0);
+                    combined.set(new Uint8Array(cipherBuffer), 12);
+                    const resUrl = await fetch('/api/files/upload-url', {headers: {'Authorization': 'Bearer ' + token}});
+                    const dataUrl = await resUrl.json();
+                    progressText.textContent = `Загрузка файла ${i + 1} из ${pendingFiles.length}...`;
+                    await fetch(dataUrl.uploadUrl, {method: 'PUT', body: combined.buffer});
+                    fileKeysRegistry[dataUrl.objectName] = fileKeyB64;
+                    uploadedFilesData.push({
+                        objectName: dataUrl.objectName,
+                        fileName: file.name,
+                        fileKey: fileKeyB64,
+                        mimeType: file.type,
+                        originalSize: originalSize
+                    });
+                }
+            } catch (err) {
+                showToast("Ошибка загрузки файлов.");
+                overlay.style.display = 'none';
+                return;
+            }
+            pendingFiles = [];
+            renderAttachmentsPreview();
+            updateSendButtonState();
+            overlay.style.display = 'none';
+            document.getElementById('messageInput').focus();
+        }
+
+        const payloadObj = {type: 'complex', text: text, files: uploadedFilesData};
+        const rawTextToEncrypt = JSON.stringify(payloadObj);
+
+        const tempId = Date.now().toString();
+        const chatKey = activeChatType === 'P2P' ? activeChatId : "group_" + activeChatId;
+
+        const isSecret = !!(pfsSessions[activeChatId] && activeChatType === 'P2P');
+
+        chats[chatKey].push({
+            id: tempId,
+            senderUuid: currentUserUuid,
+            text: rawTextToEncrypt,
+            originalText: rawTextToEncrypt,
+            status: 'pending',
+            isPfs: isSecret
+        });
+        renderChat();
+
+        try {
+            let response;
+            if (isSecret) {
+                const encryptedB64 = await encryptText(rawTextToEncrypt, pfsSessions[activeChatId]);
+                const finalContent = `[PFS_MSG]|${encryptedB64}`;
+                response = await fetch('/send/pfs', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
+                    body: JSON.stringify({recipient: activeChatId, content: finalContent})
+                });
+            } else if (activeChatType === 'P2P') {
+                const encryptedB64 = await encryptText(rawTextToEncrypt, activeChatSharedKey);
+                const finalContent = myPublicKeyB64 + "|" + currentUsername + "|" + encryptedB64;
+                response = await fetch('/send', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
+                    body: JSON.stringify({recipient: activeChatId, content: finalContent})
+                });
+            } else if (activeChatType === 'GROUP') {
+                const groupKey = myGroupKeys[activeChatId];
+                const encryptedB64 = await encryptText(rawTextToEncrypt, groupKey);
+                const finalContent = currentUsername + "|" + encryptedB64;
+                response = await fetch('/send/group', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
+                    body: JSON.stringify({groupId: activeChatId, content: finalContent})
+                });
+            }
+
+            if (response && response.ok) {
+                const msgRef = chats[chatKey].find(m => m.id === tempId);
+                if (msgRef) {
+                    msgRef.status = 'sent';
+                    renderChat();
+                }
+            } else {
+                throw new Error("Server error");
+            }
+        } catch (err) {
+            showToast("Ошибка отправки сообщения (кластер недоступен или таймаут)");
+            const msgRef = chats[chatKey].find(m => m.id === tempId);
+            if (msgRef) {
+                msgRef.status = 'error';
+                renderChat();
+            }
+        }
+    }
+
+    async function retryMessage(chatKey, msgId) {
+        const msg = chats[chatKey].find(m => m.id === msgId);
+        if (!msg) return;
+        msg.status = 'pending';
+        renderChat();
+        try {
+            let response;
+            if (msg.isPfs) {
+                const sessionKey = pfsSessions[activeChatId];
+                if (!sessionKey) throw new Error("Нет ключа PFS");
+                const encryptedB64 = await encryptText(msg.originalText, sessionKey);
+                const finalContent = `[PFS_MSG]|${encryptedB64}`;
+                response = await fetch('/send/pfs', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
+                    body: JSON.stringify({recipient: activeChatId, content: finalContent})
+                });
+            } else if (chatKey.startsWith('group_')) {
+                const groupKey = myGroupKeys[activeChatId];
+                const encryptedB64 = await encryptText(msg.originalText, groupKey);
+                const finalContent = currentUsername + "|" + encryptedB64;
+                response = await fetch('/send/group', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
+                    body: JSON.stringify({groupId: activeChatId, content: finalContent})
+                });
+            } else {
+                const encryptedB64 = await encryptText(msg.originalText, activeChatSharedKey);
+                const finalContent = myPublicKeyB64 + "|" + currentUsername + "|" + encryptedB64;
+                response = await fetch('/send', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
+                    body: JSON.stringify({recipient: activeChatId, content: finalContent})
+                });
+            }
+            if (response && response.ok) {
+                msg.status = 'sent';
+                renderChat();
+            } else {
+                throw new Error("Server error");
+            }
+        } catch (err) {
+            showToast("Кластер всё ещё недоступен");
+            msg.status = 'error';
+            renderChat();
+        }
+    }
+
+    async function downloadFile(objectName, fileName, mimeType, originalSize) {
+        const fileKeyB64 = fileKeysRegistry[objectName];
+        if (!fileKeyB64) {
+            showToast("Локальный ключ файла не найден.");
+            return;
+        }
+        try {
+            const resUrl = await fetch('/api/files/download-url?objectName=' + objectName, {headers: {'Authorization': 'Bearer ' + token}});
+            const dataUrl = await resUrl.json();
+            const response = await fetch(dataUrl.downloadUrl);
+            if (!response.ok) {
+                showToast("Файл удален или недоступен.");
+                return;
+            }
+            const combinedBuffer = await response.arrayBuffer();
+            const combined = new Uint8Array(combinedBuffer);
+            const iv = combined.slice(0, 12);
+            const data = combined.slice(12);
+            const fileKey = await window.crypto.subtle.importKey("raw", b642buf(fileKeyB64), {name: "AES-GCM"}, false, ["decrypt"]);
+            const decryptedBuffer = await window.crypto.subtle.decrypt({name: "AES-GCM", iv: iv}, fileKey, data);
+            const unpaddedBuffer = decryptedBuffer.slice(0, originalSize);
+            const blob = new Blob([unpaddedBuffer], {type: mimeType});
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            link.click();
+        } catch (err) {
+            showToast("Ошибка расшифровки файла.");
+        }
+    }
+
+    function escapeHtml(unsafe) {
+        return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function toggleChatMenu(e) {
+        e.stopPropagation();
+        document.getElementById('chatDropdown').classList.toggle('open');
+    }
+
+    document.addEventListener('click', () => {
+        document.getElementById('chatDropdown').classList.remove('open');
+    });
+
+    function closeDeleteChatModal() {
+        document.getElementById('deleteChatModalOverlay').classList.remove('show');
+    }
+
+    function confirmDeleteChat() {
+        document.getElementById('chatDropdown').classList.remove('open');
+        document.getElementById('deleteChatModalTitle').textContent = 'Удалить переписку?';
+        document.getElementById('deleteChatModalDesc').textContent = 'Все сообщения будут удалены с сервера для обоих участников. Это действие необратимо.';
+        document.getElementById('btnConfirmDeleteChat').onclick = executeDeleteChat;
+        document.getElementById('deleteChatModalOverlay').classList.add('show');
+    }
+
+    async function executeDeleteChat() {
+        closeDeleteChatModal();
+        const uuid = activeChatId;
+        try {
+            await fetch('/api/messages/p2p/' + uuid, {
+                method: 'DELETE',
+                headers: {'Authorization': 'Bearer ' + token}
+            });
+        } catch (e) {
+        }
+        const list = document.getElementById('userList');
+        const li = Array.from(list.children).find(el => el.dataset.uuid === uuid);
+        if (li) li.remove();
+        delete chats[uuid];
+        activeChatId = null;
+        activeChatType = null;
+        activeChatSharedKey = null;
+        document.getElementById('chatMenuBtn').style.display = 'none';
+        document.getElementById('chatArea').style.display = 'none';
+        document.getElementById('emptyState').style.display = 'flex';
+    }
+
+    function confirmLeaveGroup() {
+        document.getElementById('chatDropdown').classList.remove('open');
+        document.getElementById('deleteChatModalTitle').textContent = 'Выйти из группы?';
+        document.getElementById('deleteChatModalDesc').textContent = 'Вы покинете группу. История сообщений останется у других участников.';
+        document.getElementById('btnConfirmDeleteChat').onclick = executeLeaveGroup;
+        document.getElementById('deleteChatModalOverlay').classList.add('show');
+    }
+
+    async function executeLeaveGroup() {
+        closeDeleteChatModal();
+        const groupId = activeChatId;
+        try {
+            await fetch('/api/groups/' + groupId + '/leave', {
+                method: 'DELETE',
+                headers: {'Authorization': 'Bearer ' + token}
+            });
+        } catch (e) {
+        }
+        const list = document.getElementById('groupList');
+        const li = Array.from(list.children).find(el => el.dataset.groupId == groupId);
+        if (li) li.remove();
+        delete chats["group_" + groupId];
+        delete myGroupKeys[groupId];
+        activeChatId = null;
+        activeChatType = null;
+        activeGroupCreatorUuid = null;
+        document.getElementById('chatMenuBtn').style.display = 'none';
+        document.getElementById('chatArea').style.display = 'none';
+        document.getElementById('emptyState').style.display = 'flex';
+    }
+
+    function confirmDeleteGroup() {
+        document.getElementById('chatDropdown').classList.remove('open');
+        document.getElementById('deleteChatModalTitle').textContent = 'Удалить группу?';
+        document.getElementById('deleteChatModalDesc').textContent = 'Группа и вся переписка будут удалены для всех участников. Это действие необратимо.';
+        document.getElementById('btnConfirmDeleteChat').onclick = executeDeleteGroup;
+        document.getElementById('deleteChatModalOverlay').classList.add('show');
+    }
+
+    async function executeDeleteGroup() {
+        closeDeleteChatModal();
+        const groupId = activeChatId;
+        try {
+            await fetch('/api/groups/' + groupId, {
+                method: 'DELETE',
+                headers: {'Authorization': 'Bearer ' + token}
+            });
+        } catch (e) {
+        }
+        const list = document.getElementById('groupList');
+        const li = Array.from(list.children).find(el => el.dataset.groupId == groupId);
+        if (li) li.remove();
+        delete chats["group_" + groupId];
+        delete myGroupKeys[groupId];
+        activeChatId = null;
+        activeChatType = null;
+        activeGroupCreatorUuid = null;
+        document.getElementById('chatMenuBtn').style.display = 'none';
+        document.getElementById('chatArea').style.display = 'none';
+        document.getElementById('emptyState').style.display = 'flex';
+    }
+
+    const msgInput = document.getElementById('messageInput');
+    msgInput.addEventListener('input', function () {
+        this.style.height = '46px';
+        const newHeight = Math.min(this.scrollHeight, 120);
+        this.style.height = newHeight + 'px';
+        updateScrollButtonPosition();
+    });
+    msgInput.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            if (!btnSendMsg.disabled) sendMessage();
+        }
+    });
+
+    window.addEventListener('beforeunload', () => {
+        Object.keys(pfsSessions).forEach(uuid => {
+            fetch('/send/pfs', {
+                method: 'POST', headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
+                body: JSON.stringify({recipient: uuid, content: '[PFS_CLOSE]'}),
+                keepalive: true
+            }).catch(e => {
+            });
+        });
+    });
+</script>
+</body>
+</html>
