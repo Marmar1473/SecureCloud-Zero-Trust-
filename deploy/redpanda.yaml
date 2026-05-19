@@ -1,0 +1,124 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: redpanda-headless
+spec:
+  clusterIP: None
+  selector:
+    app: redpanda
+  ports:
+  - port: 9092
+    name: kafka
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redpanda
+spec:
+  serviceName: redpanda-headless
+  replicas: 3
+  selector:
+    matchLabels:
+      app: redpanda
+  template:
+    metadata:
+      labels:
+        app: redpanda
+    spec:
+      securityContext:
+        fsGroup: 101
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - redpanda
+            topologyKey: kubernetes.io/hostname
+      initContainers:
+      - name: fix-permissions
+        image: busybox
+        command: ['sh', '-c', 'chown -R 101:101 /var/lib/redpanda/data /etc/redpanda']
+        volumeMounts:
+        - name: redpanda-data
+          mountPath: /var/lib/redpanda/data
+        - name: config-dir
+          mountPath: /etc/redpanda
+      tolerations:
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 5
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 5
+      containers:
+      - name: redpanda
+        image: docker.redpanda.com/redpandadata/redpanda:v23.3.17
+        command:
+        - /bin/sh
+        - -c
+        - |
+          cat > /etc/redpanda/redpanda.yaml << EOF
+          redpanda:
+            node_id: ${HOSTNAME##*-}
+            seed_servers:
+              - host:
+                  address: redpanda-0.redpanda-headless.default.svc.cluster.local
+                  port: 33145
+              - host:
+                  address: redpanda-1.redpanda-headless.default.svc.cluster.local
+                  port: 33145
+              - host:
+                  address: redpanda-2.redpanda-headless.default.svc.cluster.local
+                  port: 33145
+            rpc_server:
+              address: 0.0.0.0
+              port: 33145
+            advertised_rpc_api:
+              address: ${HOSTNAME}.redpanda-headless.default.svc.cluster.local
+              port: 33145
+            kafka_api:
+              - address: 0.0.0.0
+                port: 9092
+            advertised_kafka_api:
+              - address: ${HOSTNAME}.redpanda-headless.default.svc.cluster.local
+                port: 9092
+            developer_mode: true
+            data_directory: /var/lib/redpanda/data
+          EOF
+          exec redpanda --redpanda-cfg /etc/redpanda/redpanda.yaml \
+            --smp 1 \
+            --memory 512M \
+            --reserve-memory 0M \
+            --overprovisioned
+        ports:
+        - containerPort: 9092
+          name: kafka
+        - containerPort: 33145
+          name: rpc
+        resources:
+          requests:
+            memory: "512Mi"
+          limits:
+            memory: "768Mi"
+        volumeMounts:
+        - name: redpanda-data
+          mountPath: /var/lib/redpanda/data
+        - name: config-dir
+          mountPath: /etc/redpanda
+      volumes:
+      - name: config-dir
+        emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: redpanda-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: local-path
+      resources:
+        requests:
+          storage: 3Gi

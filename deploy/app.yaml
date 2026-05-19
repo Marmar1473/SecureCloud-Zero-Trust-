@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: securechat-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: securechat
+  template:
+    metadata:
+      labels:
+        app: securechat
+    spec:
+      initContainers:
+      - name: wait-for-db
+        image: busybox
+        command: ["sh","-c","until nc -z securechat-db-rw 5432; do echo waiting for db; sleep 5; done"]
+      tolerations:
+      - key: "master-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 5
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 5
+      containers:
+      - name: securechat
+        image: marmar1473/securechat:v26
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            memory: "512Mi"
+          limits:
+            memory: "768Mi"
+        env:
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:postgresql://securechat-db-rw:5432/securechat"
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: securechat-db-app
+              key: username
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: securechat-db-app
+              key: password
+        - name: MINIO_URL
+          value: "http://minio-service.default.svc.cluster.local:9000"
+        - name: MINIO_PUBLIC_URL
+          value: "http://192.168.154.132:30000"
+        - name: MINIO_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: securechat-secrets
+              key: MINIO_ROOT_USER
+        - name: MINIO_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: securechat-secrets
+              key: MINIO_ROOT_PASSWORD
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: securechat-secrets
+              key: JWT_SECRET
+        - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+          value: "redpanda-0.redpanda-headless.default.svc.cluster.local:9092,redpanda-1.redpanda-headless.default.svc.cluster.local:9092,redpanda-2.redpanda-headless.default.svc.cluster.local:9092"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: securechat-service
+spec:
+  type: NodePort
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 86400
+  selector:
+    app: securechat
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30080

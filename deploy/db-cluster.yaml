@@ -1,0 +1,17 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: securechat-db
+spec:
+  instances: 3
+  
+  storage:
+    size: 5Gi
+    storageClass: local-path
+
+  bootstrap:
+    initdb:
+      database: securechat
+      owner: chat_admin
+      secret:
+        name: securechat-db-app
